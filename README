@@ -5,8 +5,8 @@ There are three main parts in the Corda app.
 - state : the facts that are written to the ledger.
 - contract : the constraints governing how states of a given type can evolve over time
 - flow : the procedures for carrying out specific ekyc ledger updates
-The requester will issue a kyc request to document owner. The owner will respond with the document attached in the
-transaction.
+The requester will issue a kyc request to document owner.
+The owner will respond with the document attached in the transaction.
 
 The code is in :
 contracts/src/main/java/com/template/contracts
@@ -27,7 +27,7 @@ In Ubuntu, start the nodes by running the following command from the root of the
 
 In PartyA terminal, run the command: 
 start KYCFlow kycValue: 99, otherParty: "O=PartyB,L=New York,C=US"
-to create an IOU with PartyB. This single command will cause PartyA and PartyB to automatically agree an IOU. 
+to create an eKYC request to PartyB. This single command will cause PartyB to automatically agree to eKYC request.
 (Note: The argument has to be "O=PartyB,L=New York,C=US" because the value is hardcoded in build.gradle)
 
 In PartyA or PartyB terminal, run the command:
