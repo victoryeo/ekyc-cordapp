@@ -63,7 +63,7 @@ public class KYCFlowResponder extends FlowLogic<Void> {
 
         //Change the path to "../test.zip" for passing the unit test.
         //because the unit test are in a different working directory than the running node.
-        String zipPath = unitTest ? "../test.zip" : "../../../test.zip";
+        String zipPath = unitTest ? "../../../test.zip" : "../../../idtest.txt";
 
         SecureHash attachmentHash = null;
         try {
