@@ -13,6 +13,7 @@ import net.corda.core.utilities.ProgressTracker;
 import net.corda.core.contracts.ContractState;
 // Add this import:
 import net.corda.core.flows.ReceiveFinalityFlow;
+import net.corda.confidential.IdentitySyncFlow;
 import net.corda.core.crypto.SecureHash;
 
 import static net.corda.core.contracts.ContractsDSL.requireThat;
@@ -27,6 +28,17 @@ import java.io.IOException;
 @InitiatedBy(KYCFlow.class)
 public class KYCFlowResponder extends FlowLogic<Void> {
     private final FlowSession otherPartySession;
+    private final ProgressTracker progressTracker = new ProgressTracker(
+        RECEIVING_KYC,
+        SIGNING,
+        SENDING_PROOF
+    );
+    private static final ProgressTracker.Step RECEIVING_KYC = new ProgressTracker.Step(
+        "Receiving proposed kyc.");
+    private static final ProgressTracker.Step SIGNING = new ProgressTracker.Step(
+        "Signing proposed kyc.");
+    private static final ProgressTracker.Step SENDING_PROOF = new ProgressTracker.Step(
+        "Signing proof of kyc.");
 
     public KYCFlowResponder(FlowSession otherPartySession) {
         this.otherPartySession = otherPartySession;
@@ -40,6 +52,7 @@ public class KYCFlowResponder extends FlowLogic<Void> {
         /** Add attachment logic - START */
         // You retrieve the notary identity from the network map.
         Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
+        progressTracker.setCurrentStep(RECEIVING_KYC);
 
         // Initiate transaction Builder
         TransactionBuilder transactionBuilder = new TransactionBuilder(notary);
@@ -65,7 +78,14 @@ public class KYCFlowResponder extends FlowLogic<Void> {
         }
         transactionBuilder.addAttachment(attachmentHash);
         /** Add attachment logic - END */
+
+        progressTracker.setCurrentStep(SIGNING);
         SignedTransaction signedTx = getServiceHub().signInitialTransaction(transactionBuilder);
+
+        // Sync up confidential info in the transaction with our counterparty
+        //subFlow(new IdentitySyncFlow().Send(otherPartySession, transactionBuilder.toWireTransaction(getServiceHub())));
+        subFlow(new SendTransactionFlow(otherPartySession, signedTx));
+        progressTracker.setCurrentStep(SENDING_PROOF);
 
         class SignTxFlow extends SignTransactionFlow {
             private SignTxFlow(FlowSession otherPartySession, ProgressTracker progressTracker) {
