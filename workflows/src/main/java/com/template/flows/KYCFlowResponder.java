@@ -63,8 +63,8 @@ public class KYCFlowResponder extends FlowLogic<Void> {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        /** Add attachment logic - END */
         transactionBuilder.addAttachment(attachmentHash);
+        /** Add attachment logic - END */
         SignedTransaction signedTx = getServiceHub().signInitialTransaction(transactionBuilder);
 
         class SignTxFlow extends SignTransactionFlow {
