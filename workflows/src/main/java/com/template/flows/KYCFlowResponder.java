@@ -13,11 +13,16 @@ import net.corda.core.utilities.ProgressTracker;
 import net.corda.core.contracts.ContractState;
 // Add this import:
 import net.corda.core.flows.ReceiveFinalityFlow;
+import net.corda.core.flows.SendStateAndRefFlow;
 import net.corda.confidential.IdentitySyncFlow;
 import net.corda.core.crypto.SecureHash;
+import net.corda.core.contracts.StateAndRef;
 
 import static net.corda.core.contracts.ContractsDSL.requireThat;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -28,7 +33,7 @@ import java.io.IOException;
 @InitiatedBy(KYCFlow.class)
 public class KYCFlowResponder extends FlowLogic<Void> {
     private final FlowSession otherPartySession;
-    private final ProgressTracker progressTracker = new ProgressTracker(
+    /*private final ProgressTracker progressTracker = new ProgressTracker(
         RECEIVING_KYC,
         SIGNING,
         SENDING_PROOF
@@ -38,54 +43,37 @@ public class KYCFlowResponder extends FlowLogic<Void> {
     private static final ProgressTracker.Step SIGNING = new ProgressTracker.Step(
         "Signing proposed kyc.");
     private static final ProgressTracker.Step SENDING_PROOF = new ProgressTracker.Step(
-        "Signing proof of kyc.");
+        "Signing proof of kyc.");*/
+
+    private final ProgressTracker progressTracker = new ProgressTracker();
 
     public KYCFlowResponder(FlowSession otherPartySession) {
         this.otherPartySession = otherPartySession;
+    }
+
+    @Override
+    public ProgressTracker getProgressTracker() {
+        return progressTracker;
     }
 
     private boolean unitTest = false;
 
     @Suspendable
     @Override
-    public Void call() throws FlowException {
+    public Void call() throws FlowException {            
+        String name = otherPartySession.receive(String.class).unwrap(it -> it);
+              
         /** Add attachment logic - START */
-        // You retrieve the notary identity from the network map.
-        Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
-        progressTracker.setCurrentStep(RECEIVING_KYC);
-
-        // Initiate transaction Builder
-        TransactionBuilder transactionBuilder = new TransactionBuilder(notary);
-
         // upload attachment via private method
         String path = System.getProperty("user.dir");
         System.out.println("Working Directory = " + path);
 
-        //Change the path to "../test.zip" for passing the unit test.
-        //because the unit test are in a different working directory than the running node.
-        String zipPath = unitTest ? "../../../test.zip" : "../../../idtest.txt";
-
         SecureHash attachmentHash = null;
-        try {
-            attachmentHash = SecureHash.parse(uploadAttachment(
-                    zipPath,
-                    getServiceHub(),
-                    getOurIdentity(),
-                    "testzip")
-            );
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        transactionBuilder.addAttachment(attachmentHash);
+
+        attachmentHash = SecureHash.randomSHA256();
         /** Add attachment logic - END */
-
-        progressTracker.setCurrentStep(SIGNING);
-        SignedTransaction signedTx = getServiceHub().signInitialTransaction(transactionBuilder);
-
-        // Sync up confidential info in the transaction with our counterparty
-        //subFlow(new IdentitySyncFlow().Send(otherPartySession, transactionBuilder.toWireTransaction(getServiceHub())));
-        subFlow(new SendTransactionFlow(otherPartySession, signedTx));
-        progressTracker.setCurrentStep(SENDING_PROOF);
+        otherPartySession.send(attachmentHash.toString());
+        
 
         class SignTxFlow extends SignTransactionFlow {
             private SignTxFlow(FlowSession otherPartySession, ProgressTracker progressTracker) {
@@ -108,9 +96,7 @@ public class KYCFlowResponder extends FlowLogic<Void> {
         SecureHash expectedTxId = subFlow(new SignTxFlow(otherPartySession, SignTransactionFlow.Companion.tracker())).getId();
 
         subFlow(new ReceiveFinalityFlow(otherPartySession, expectedTxId));
-
-        //subFlow(new SignTxFlow(otherPartySession, SignTransactionFlow.Companion.tracker()));
-
+        
         return null;
     }
 
