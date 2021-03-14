@@ -31,7 +31,7 @@ import java.io.IOException;
 @InitiatingFlow
 @StartableByRPC
 public class KYCFlow extends FlowLogic<Void> {
-    private final Integer KYCValue;
+    private final String kycName;
     private final Party otherParty;
 
     // We will not use these ProgressTracker for this Hello-World sample
@@ -57,8 +57,8 @@ public class KYCFlow extends FlowLogic<Void> {
     private static final ProgressTracker.Step SENDING_FINAL_TRANSACTION = new ProgressTracker.Step(
             "Sending fully signed transaction to other party.");
 
-    public KYCFlow(Integer kycValue, Party otherParty) {
-        this.KYCValue = kycValue;
+    public KYCFlow(String kycName, Party otherParty) {
+        this.kycName = kycName;
         this.otherParty = otherParty;
     }
 
@@ -83,10 +83,10 @@ public class KYCFlow extends FlowLogic<Void> {
 
         KYCModel kyc = new KYCModel();
         kyc.setKycId(1);
+        kyc.setUserName(kycName);
         // build transaction
         KYCState outputState = new KYCState(kyc, getOurIdentity(), otherParty);
         List<PublicKey> requiredSigners = Arrays.asList(getOurIdentity().getOwningKey(), otherParty.getOwningKey());
-        Command command = new Command<>(new KYCContract.Create(), requiredSigners);
         KYCContract.Commands.Issue commandData = new KYCContract.Commands.Issue();
 
         // Initiate transaction Builder
