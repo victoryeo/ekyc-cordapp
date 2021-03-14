@@ -6,7 +6,7 @@ There are three main parts in the Corda app.
 - contract : the constraints governing how states of a given type can evolve over time
 - flow : the procedures for carrying out specific ekyc ledger updates
 The requester will issue a kyc request to document owner.
-The owner will respond with the document attached in the transaction.
+The owner will respond with the document hash attached in the transaction.
 
 The code is in :
 contracts/src/main/java/com/template/contracts
