@@ -35,13 +35,12 @@ public class KYCFlow extends FlowLogic<Void> {
     private final String kycName;
     private final Party otherParty;
 
-    // We will not use these ProgressTracker for this Hello-World sample
     private final ProgressTracker progressTracker = new ProgressTracker(
         CONSTRUCTING_KYC,
         VERIFYING,
         SIGNING,
-        NOTARY,
-        RECORDING,
+        WAITING,
+        RECEIVING_PROOF,
         SENDING_FINAL_TRANSACTION
     );
 
@@ -51,10 +50,10 @@ public class KYCFlow extends FlowLogic<Void> {
             "Verifying signatures and contract constraints.");
     private static final ProgressTracker.Step SIGNING = new ProgressTracker.Step(
             "Signing transaction with our private key.");
-    private static final ProgressTracker.Step NOTARY = new ProgressTracker.Step(
-            "Obtaining notary signature.");
-    private static final ProgressTracker.Step RECORDING = new ProgressTracker.Step(
-            "Recording transaction in vault.");
+    private static final ProgressTracker.Step WAITING = new ProgressTracker.Step(
+            "Waiting for the other party.");
+    private static final ProgressTracker.Step RECEIVING_PROOF = new ProgressTracker.Step(
+            "Receiviing proof from the other party.");
     private static final ProgressTracker.Step SENDING_FINAL_TRANSACTION = new ProgressTracker.Step(
             "Sending fully signed transaction to other party.");
 
@@ -88,12 +87,14 @@ public class KYCFlow extends FlowLogic<Void> {
         // build transaction
         KYCState outputState = new KYCState(kyc, getOurIdentity(), otherParty);
         List<PublicKey> requiredSigners = Arrays.asList(getOurIdentity().getOwningKey(), otherParty.getOwningKey());
-        KYCContract.Commands.Issue commandData = new KYCContract.Commands.Issue();
+        Command command = new Command<>(new KYCContract.Issue(), requiredSigners);
+        //KYCContract.Commands.Issue commandData = new KYCContract.Commands.Issue();
 
         // Initiate transaction Builder
         TransactionBuilder transactionBuilder = new TransactionBuilder(notary);
         // add the components
-        transactionBuilder.addCommand(commandData, getOurIdentity().getOwningKey(), otherParty.getOwningKey());
+        //transactionBuilder.addCommand(commandData, getOurIdentity().getOwningKey(), otherParty.getOwningKey());
+        transactionBuilder.addCommand(command);
         transactionBuilder.addOutputState(outputState, KYCContract.ID);
 
         transactionBuilder.verify(getServiceHub());
@@ -105,20 +106,22 @@ public class KYCFlow extends FlowLogic<Void> {
 
         // Creating a session with the other party.
         FlowSession otherPartySession = initiateFlow(otherParty);
+        progressTracker.setCurrentStep(WAITING);
 
         // Obtaining the counterparty's proof.
-        //subFlow(new ReceiveTransactionFlow(otherPartySession));
-        SignedTransaction fullySignedTx = subFlow(new SignTransactionFlow(otherPartySession) {
+        subFlow(new ReceiveTransactionFlow(otherPartySession));
+        /*SignedTransaction fullySignedTx = subFlow(new SignTransactionFlow(otherPartySession) {
                 @Override
                     protected void checkTransaction(@NotNull SignedTransaction stx) throws FlowException {
                     if (stx.getTx().getAttachments().isEmpty())
                         throw new FlowException("No Jar was being sent");
                 }
-        });
+        });*/
         //subFlow(new ReceiveFinalityFlow(otherPartySession, fullySignedTx.getId()));
+        progressTracker.setCurrentStep(RECEIVING_PROOF);
 
         // Finalising the transaction.
-        subFlow(new FinalityFlow(fullySignedTx, otherPartySession));
+        subFlow(new FinalityFlow(signedTx, otherPartySession));
         progressTracker.setCurrentStep(SENDING_FINAL_TRANSACTION);
 
         return null;
