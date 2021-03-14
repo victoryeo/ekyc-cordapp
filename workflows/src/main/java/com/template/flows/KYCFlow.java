@@ -24,6 +24,7 @@ import java.util.List;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import org.jetbrains.annotations.NotNull;
 
 // ******************
 // * Initiator flow *
@@ -36,7 +37,7 @@ public class KYCFlow extends FlowLogic<Void> {
 
     // We will not use these ProgressTracker for this Hello-World sample
     private final ProgressTracker progressTracker = new ProgressTracker(
-        CONSTRUCTING_OFFER,
+        CONSTRUCTING_KYC,
         VERIFYING,
         SIGNING,
         NOTARY,
@@ -44,7 +45,7 @@ public class KYCFlow extends FlowLogic<Void> {
         SENDING_FINAL_TRANSACTION
     );
 
-    private static final ProgressTracker.Step CONSTRUCTING_OFFER = new ProgressTracker.Step(
+    private static final ProgressTracker.Step CONSTRUCTING_KYC = new ProgressTracker.Step(
             "Constructing proposed kyc.");
     private static final ProgressTracker.Step VERIFYING = new ProgressTracker.Step(
             "Verifying signatures and contract constraints.");
@@ -79,7 +80,7 @@ public class KYCFlow extends FlowLogic<Void> {
         Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
 
         // Start eKYC process
-        progressTracker.setCurrentStep(CONSTRUCTING_OFFER);
+        progressTracker.setCurrentStep(CONSTRUCTING_KYC);
 
         KYCModel kyc = new KYCModel();
         kyc.setKycId(1);
@@ -105,9 +106,16 @@ public class KYCFlow extends FlowLogic<Void> {
         // Creating a session with the other party.
         FlowSession otherPartySession = initiateFlow(otherParty);
 
-        // Obtaining the counterparty's signature.
-        SignedTransaction fullySignedTx = subFlow(new CollectSignaturesFlow(
-                signedTx, Arrays.asList(otherPartySession), CollectSignaturesFlow.tracker()));
+        // Obtaining the counterparty's proof.
+        //subFlow(new ReceiveTransactionFlow(otherPartySession));
+        SignedTransaction fullySignedTx = subFlow(new SignTransactionFlow(otherPartySession) {
+                @Override
+                    protected void checkTransaction(@NotNull SignedTransaction stx) throws FlowException {
+                    if (stx.getTx().getAttachments().isEmpty())
+                        throw new FlowException("No Jar was being sent");
+                }
+        });
+        //subFlow(new ReceiveFinalityFlow(otherPartySession, fullySignedTx.getId()));
 
         // Finalising the transaction.
         subFlow(new FinalityFlow(fullySignedTx, otherPartySession));
