@@ -17,6 +17,7 @@ import static net.corda.core.contracts.ContractsDSL.requireThat;
 import net.corda.core.contracts.ContractState;
 import net.corda.core.contracts.TransactionState;
 import net.corda.core.crypto.SecureHash;
+import net.corda.core.contracts.Attachment;
 
 import java.security.PublicKey;
 import java.util.Arrays;
@@ -24,6 +25,7 @@ import java.util.List;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import org.jetbrains.annotations.NotNull;
 
 // ******************
@@ -37,25 +39,24 @@ public class KYCFlow extends FlowLogic<Void> {
 
     private final ProgressTracker progressTracker = new ProgressTracker(
         CONSTRUCTING_KYC,
+        WAITING,
         VERIFYING,
         SIGNING,
-        WAITING,
-        RECEIVING_PROOF,
         SENDING_FINAL_TRANSACTION
     );
 
     private static final ProgressTracker.Step CONSTRUCTING_KYC = new ProgressTracker.Step(
             "Constructing proposed kyc.");
+    private static final ProgressTracker.Step WAITING = new ProgressTracker.Step(
+            "Waiting for the other party.");
     private static final ProgressTracker.Step VERIFYING = new ProgressTracker.Step(
             "Verifying signatures and contract constraints.");
     private static final ProgressTracker.Step SIGNING = new ProgressTracker.Step(
             "Signing transaction with our private key.");
-    private static final ProgressTracker.Step WAITING = new ProgressTracker.Step(
-            "Waiting for the other party.");
-    private static final ProgressTracker.Step RECEIVING_PROOF = new ProgressTracker.Step(
-            "Receiviing proof from the other party.");
     private static final ProgressTracker.Step SENDING_FINAL_TRANSACTION = new ProgressTracker.Step(
             "Sending fully signed transaction to other party.");
+
+    //private final ProgressTracker progressTracker = new ProgressTracker();
 
     public KYCFlow(String kycName, Party otherParty) {
         this.kycName = kycName;
@@ -66,8 +67,6 @@ public class KYCFlow extends FlowLogic<Void> {
     public ProgressTracker getProgressTracker() {
         return progressTracker;
     }
-
-    private boolean unitTest = false;
 
     /**
      * The flow logic is encapsulated within the call() method.
@@ -81,10 +80,17 @@ public class KYCFlow extends FlowLogic<Void> {
         // Start eKYC process
         progressTracker.setCurrentStep(CONSTRUCTING_KYC);
 
+        // Creating a session with the other party.
+        FlowSession otherPartySession = initiateFlow(otherParty);
+        progressTracker.setCurrentStep(WAITING);
+
+        String attachmentHash = otherPartySession.sendAndReceive(String.class, kycName).unwrap(it -> it);
+
+        System.out.println("Working hash = " + attachmentHash);
+
         KYCModel kyc = new KYCModel();
         kyc.setKycId(1);
         kyc.setUserName(kycName);
-        // build transaction
         KYCState outputState = new KYCState(kyc, getOurIdentity(), otherParty);
         List<PublicKey> requiredSigners = Arrays.asList(getOurIdentity().getOwningKey(), otherParty.getOwningKey());
         Command command = new Command<>(new KYCContract.Issue(), requiredSigners);
@@ -104,36 +110,25 @@ public class KYCFlow extends FlowLogic<Void> {
         SignedTransaction signedTx = getServiceHub().signInitialTransaction(transactionBuilder);
         progressTracker.setCurrentStep(SIGNING);
 
-        // Creating a session with the other party.
-        FlowSession otherPartySession = initiateFlow(otherParty);
-        progressTracker.setCurrentStep(WAITING);
-
-        // Obtaining the counterparty's proof.
-        subFlow(new ReceiveTransactionFlow(otherPartySession));
-        /*SignedTransaction fullySignedTx = subFlow(new SignTransactionFlow(otherPartySession) {
-                @Override
-                    protected void checkTransaction(@NotNull SignedTransaction stx) throws FlowException {
-                    if (stx.getTx().getAttachments().isEmpty())
-                        throw new FlowException("No Jar was being sent");
-                }
-        });*/
-        //subFlow(new ReceiveFinalityFlow(otherPartySession, fullySignedTx.getId()));
-        progressTracker.setCurrentStep(RECEIVING_PROOF);
+        // Obtaining the counterparty's signature.
+        SignedTransaction fullySignedTx = subFlow(new CollectSignaturesFlow(
+                signedTx, Arrays.asList(otherPartySession), CollectSignaturesFlow.tracker()));
 
         // Finalising the transaction.
-        subFlow(new FinalityFlow(signedTx, otherPartySession));
+        subFlow(new FinalityFlow(fullySignedTx, otherPartySession));
         progressTracker.setCurrentStep(SENDING_FINAL_TRANSACTION);
 
         return null;
     }
 
-    private String uploadAttachment(String path, ServiceHub service, Party whoami, String filename) throws IOException {
-        SecureHash attachmentHash = service.getAttachments().importAttachment(
-                new FileInputStream(new File(path)),
-                whoami.toString(),
-                filename
-        );
-
-        return attachmentHash.toString();
+    private String DownloadAttachment(String hash) throws IOException {
+        Attachment content = getServiceHub().getAttachments().openAttachment(SecureHash.parse(hash));
+        try {
+                InputStream inStream = content.open();
+                byte[] buffer = new byte[inStream.available()];
+        } catch (IOException e) {
+                e.printStackTrace();
+        }
+        return "OK";
     }
 }
