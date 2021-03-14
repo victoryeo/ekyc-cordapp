@@ -26,8 +26,9 @@ In Ubuntu, start the nodes by running the following command from the root of the
 3) Interacting with the nodes:
 
 In PartyA terminal, run the command: 
-start KYCFlow kycValue: 99, otherParty: "O=PartyB,L=New York,C=US"
-to create an eKYC request to PartyB. This single command will cause PartyB to automatically agree to eKYC request.
+start KYCFlow kycName: "Tom", otherParty: "O=PartyB,L=New York,C=US"
+to create an eKYC request to PartyB, to verify PartyB's name is "Tom". 
+This single command will cause PartyB to automatically agree to eKYC request.
 (Note: The argument has to be "O=PartyB,L=New York,C=US" because the value is hardcoded in build.gradle)
 
 In PartyA or PartyB terminal, run the command:
