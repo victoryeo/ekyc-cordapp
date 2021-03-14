@@ -27,17 +27,17 @@ import static net.corda.core.contracts.ContractsDSL.requireSingleCommand;
 public class KYCContract implements Contract {
     public static final String ID = "com.template.contracts.KYCContract";
 
-    public static class Create implements CommandData {
+    public static class Issue implements CommandData {
     }
 
-    public interface Commands extends CommandData {
+    /*public interface Commands extends CommandData {
         class Issue implements Commands {
         }
-    }
+    }*/
 
     @Override
     public void verify(LedgerTransaction tx) {
-        final CommandWithParties<KYCContract.Create> command = requireSingleCommand(tx.getCommands(), KYCContract.Create.class);
+        final CommandWithParties<KYCContract.Issue> command = requireSingleCommand(tx.getCommands(), KYCContract.Issue.class);
 
         // Constraints on the shape of the transaction.
         if (!tx.getInputs().isEmpty())
