@@ -78,3 +78,6 @@ docs/virtualenv/
 
 # if you use the installQuasar task
 lib
+
+bin/
+.vscode/
