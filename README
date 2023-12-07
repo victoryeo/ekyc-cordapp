@@ -1,6 +1,10 @@
 This CorDapp is to model eKYC process using Corda blockchain.
 *** Warning: It is a WIP ***
 
+Build env on Ubuntu  
+- Java 1.8  
+- export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/  
+
 There are three main parts in the Corda app.
 - state : the facts that are written to the ledger.
 - contract : the constraints governing how states of a given type can evolve over time
