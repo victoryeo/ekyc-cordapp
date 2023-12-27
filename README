@@ -41,3 +41,15 @@ This single command will cause PartyB to automatically agree to eKYC request.
 In PartyA or PartyB terminal, run the command:
 run vaultQuery contractStateType: com.template.states.KYCState
 This command checks the contents of each node’s vault.
+
+##################################################
+Run a RPC Client which provides Rest API endpoints
+
+Firstly, build the client code:
+./gradlew build
+
+Secondly, after running ./build/nodes/runnodes, run the client using java:
+java -jar clients/build/libs/clients-0.1.jar --server.port=50005 --config.rpc.host=localhost --config.rpc.port=10006 --config.rpc.username=user1 --config.rpc.password=test
+
+Thirdly, using curl to call the endpoint
+curl -i -X GET http://localhost:50005/templateendpoint -H 'Content-Type: application/json'
